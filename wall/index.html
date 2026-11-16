@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="de" data-mode="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:,">
+<title>Instagram – Lions Club Kassel-Herkules</title>
+<style>
+  :root {
+    --band: #070f2d;          /* Farbe der Leiste unten in euren Beiträgen */
+    --band-line: rgba(255,255,255,.18);
+    --date: #b5d4f4;
+    --lions-blue: #003087;    /* PMS 287 */
+    --lions-gold: #f1c400;    /* PMS 7406 */
+    --gap: 10px;
+    --radius: 10px;
+    --cols: 2;
+    --muted: #5f6470;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  @media (min-width: 560px) { :root { --cols: 3; } }
+  @media (min-width: 900px) { :root { --cols: 4; --gap: 14px; } }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: transparent; }
+  body { position: relative; padding: 2px; }
+  button { font: inherit; }
+  .icon { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+  /* ---------- Raster ---------- */
+  .wall { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: var(--gap); }
+  .tile { margin: 0; border-radius: var(--radius); overflow: hidden; background: var(--band); }
+  .tile-btn { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: pointer; text-align: left; color: inherit; }
+  .tile-btn:focus-visible { outline: 3px solid var(--lions-gold); outline-offset: 2px; border-radius: var(--radius); }
+  .media { position: relative; aspect-ratio: 4 / 5; overflow: hidden; background: #1a2340; }
+  .media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; transition: opacity .8s ease, transform .4s ease; }
+  .media img.layer { opacity: 0; }
+  .media img.layer.on { opacity: 1; }
+  @media (hover: hover) { .tile-btn:hover .media img { transform: scale(1.03); } }
+
+  .badge { position: absolute; top: 8px; right: 8px; color: #fff; font-size: 18px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.6)); }
+  .play { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px; border-radius: 50%;
+          border: 2px solid #fff; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 22px;
+          background: rgba(0,0,0,.18); }
+  .play .icon { margin-left: 3px; }
+  .dots { position: absolute; left: 0; right: 0; bottom: calc(11% + 8px); display: flex; justify-content: center; gap: 5px; pointer-events: none; }
+  .dots span { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.45); transition: background .3s; }
+  .dots span.on { background: #fff; }
+
+  .stats { display: flex; align-items: center; gap: 10px; padding: 7px 9px; background: var(--band); color: #fff;
+           border-top: 1px solid var(--band-line); font-size: 12px; line-height: 1.2; white-space: nowrap; overflow: hidden; }
+  .stats span { display: inline-flex; align-items: center; gap: 4px; }
+  .stats .icon { font-size: 14px; }
+  .stats .date { margin-left: auto; color: var(--date); }
+  @media (min-width: 900px) { .stats { font-size: 13px; padding: 8px 10px; } }
+
+  .skeleton .media { background: rgba(7,15,45,.12); }
+  .skeleton .stats { color: transparent; }
+
+  /* ---------- Steuerung unter dem Raster ---------- */
+  .controls { display: flex; justify-content: center; gap: 10px; padding: 16px 0 6px; }
+  .controls[hidden] { display: none; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 22px; border-radius: 22px;
+         border: 0; background: var(--lions-blue); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; text-decoration: none; }
+  .btn:hover { filter: brightness(1.12); }
+  .btn:focus-visible { outline: 3px solid var(--lions-gold); outline-offset: 2px; }
+  .notice { padding: 24px 12px; text-align: center; color: var(--muted); font-size: 14px; }
+  .pageinfo { align-self: center; min-width: 52px; text-align: center; color: var(--muted); font-size: 13px; }
+  .controls .btn { padding: 0 18px; }
+
+  /* ---------- Großansicht (Glas) ---------- */
+  .lb { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        padding: 56px 16px 20px; opacity: 0; pointer-events: none; transition: opacity .28s ease;
+        background: rgba(14,24,52,.28); -webkit-backdrop-filter: blur(22px) saturate(180%); backdrop-filter: blur(22px) saturate(180%); }
+  .lb.framed { position: absolute; bottom: auto; }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .lb { background: rgba(8,14,36,.9); } }
+  .lb.open { opacity: 1; pointer-events: auto; }
+  .lb[hidden] { display: none; }
+
+  .glass { background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.5); color: #fff;
+           -webkit-backdrop-filter: blur(14px) saturate(190%); backdrop-filter: blur(14px) saturate(190%);
+           box-shadow: inset 0 1px 0 rgba(255,255,255,.65), 0 6px 18px rgba(0,0,0,.18); }
+  .round { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; font-size: 20px; }
+  .round:focus-visible { outline: 3px solid var(--lions-gold); outline-offset: 2px; }
+  .lb-close { position: absolute; top: 10px; right: 10px; z-index: 2; }
+  .lb-prev, .lb-next { position: absolute; top: 50%; margin-top: -22px; z-index: 2; }
+  .lb-prev { left: 10px; } .lb-next { right: 10px; }
+  @media (max-width: 519px) { .lb-prev { left: 4px; } .lb-next { right: 4px; } .lb-prev, .lb-next { width: 40px; height: 40px; margin-top: -20px; } }
+
+  .lb-card { width: var(--lbw, 300px); margin: 0; border-radius: 14px; overflow: hidden; background: var(--band);
+             box-shadow: 0 14px 40px rgba(0,0,0,.28), 0 0 0 1px rgba(255,255,255,.35); transform: scale(.97); transition: transform .28s ease; }
+  .lb.open .lb-card { transform: none; }
+  .lb-media { position: relative; overflow: hidden; touch-action: pan-y; aspect-ratio: 4 / 5; }
+  .lb-media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; user-select: none; -webkit-user-drag: none; }
+  .lb-media.reel img { object-fit: cover; }
+  .lb-media .play { width: 68px; height: 68px; margin: -34px 0 0 -34px; font-size: 28px; }
+  .lb-media .dots { bottom: calc(11% + 4px); pointer-events: auto; }
+  .lb-media .dots button { width: 18px; height: 18px; padding: 6px; border: 0; background: none; cursor: pointer; }
+  .lb-media .dots button span { display: block; width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.5); }
+  .lb-media .dots button.on span { background: #fff; }
+  .lb .stats { font-size: 13px; padding: 9px 12px; }
+
+  .lb-ig { margin-top: 16px; width: var(--lbw, 300px); min-height: 50px; border-radius: 25px; font-size: 16px;
+           box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 8px 22px rgba(0,0,0,.25); }
+  .lb-ig .icon { font-size: 22px; }
+  .lb-hint { margin: 10px 0 0; color: #fff; font-size: 12px; text-shadow: 0 1px 2px rgba(0,0,0,.4); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .media img, .lb, .lb-card { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"/><path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4v16l13 -8z"/></symbol>
+  <symbol id="i-stack" viewBox="0 0 24 24"><path d="M8 10a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2z"/><path d="M16 8v-2a2 2 0 0 0 -2 -2h-8a2 2 0 0 0 -2 2v8a2 2 0 0 0 2 2h2"/></symbol>
+  <symbol id="i-video" viewBox="0 0 24 24"><path d="M15 10l4.553 -2.276a1 1 0 0 1 1.447 .894v6.764a1 1 0 0 1 -1.447 .894l-4.553 -2.276v-4z"/><path d="M3 8a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2z"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6l-12 12"/><path d="M6 6l12 12"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="M15 6l-6 6l6 6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="M9 6l6 6l-6 6"/></symbol>
+  <symbol id="i-ig" viewBox="0 0 24 24"><path d="M4 8a4 4 0 0 1 4 -4h8a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-8a4 4 0 0 1 -4 -4z"/><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0"/><path d="M16.5 7.5v.01"/></symbol>
+</svg>
+
+<main>
+  <div class="wall" id="wall" aria-label="Instagram-Beiträge" aria-busy="true"></div>
+  <div class="controls" id="controls" hidden></div>
+</main>
+
+<div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Großansicht" hidden>
+  <button class="glass round lb-close" id="lbClose" aria-label="Schließen"><svg class="icon"><use href="#i-x"/></svg></button>
+  <button class="glass round lb-prev" id="lbPrev" aria-label="Zurück"><svg class="icon"><use href="#i-left"/></svg></button>
+  <button class="glass round lb-next" id="lbNext" aria-label="Weiter"><svg class="icon"><use href="#i-right"/></svg></button>
+  <figure class="lb-card">
+    <div class="lb-media" id="lbMedia"></div>
+    <div class="stats" id="lbStats"></div>
+  </figure>
+  <a class="btn lb-ig" id="lbIg" href="#" target="_blank" rel="noopener noreferrer">
+    <svg class="icon"><use href="#i-ig"/></svg><span id="lbIgText">Auf Instagram ansehen</span>
+  </a>
+  <p class="lb-hint" id="lbHint">Wischen oder Pfeile zum Blättern</p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ======================= Einstellungen ======================= */
+  var CONFIG = {
+    feedUrl: 'feed.json',
+    // Seiten, die die Wall einbetten und mit ihr sprechen dürfen (Höhenanpassung)
+    parentOrigins: ['https://kassel-herkules.lions.de'],
+    rows: 3,                 // Reihen pro Portion (Handy 2 x 3, Tablet 3 x 3, PC 4 x 3)
+    carouselInterval: 4000,  // ms zwischen Bildwechseln bei Karussells
+    handshakeWait: 1500      // ms Wartezeit auf das Hilfsskript von lions.de
+  };
+
+  /* ======================= Hilfsfunktionen ======================= */
+  var $ = function (id) { return document.getElementById(id); };
+  var nf = new Intl.NumberFormat('de-DE');
+  var thisYear = new Date().getFullYear();
+  var dShort = new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'short' });
+  var dShortY = new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'short', year: 'numeric' });
+  var dLong = new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
+  var reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var framed = window.self !== window.top;
+
+  function parseDate(s) { return new Date(String(s).replace(/([+-]\d{2})(\d{2})$/, '$1:$2')); }
+  function shortDate(d) { return (d.getFullYear() === thisYear ? dShort : dShortY).format(d); }
+  function icon(name) { return '<svg class="icon" aria-hidden="true"><use href="#i-' + name + '"/></svg>'; }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function safeUrl(u) { return /^https:\/\/(www\.)?instagram\.com\//.test(u) ? u : 'https://www.instagram.com/'; }
+  function cols() { return parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cols'), 10) || 2; }
+  function batch() { return cols() * CONFIG.rows; }
+
+  function statsHtml(p, long) {
+    var d = parseDate(p.date);
+    var h = '';
+    if (typeof p.likes === 'number') h += '<span>' + icon('heart') + nf.format(p.likes) + '</span>';
+    if (typeof p.views === 'number') h += '<span>' + icon('eye') + nf.format(p.views) + '</span>';
+    h += '<span class="date">' + esc(long ? dLong.format(d) : shortDate(d)) + '</span>';
+    return h;
+  }
+  function label(p) {
+    var parts = [p.type === 'reel' ? 'Reel' : p.type === 'carousel' ? 'Beitrag mit ' + p.images.length + ' Bildern' : 'Beitrag',
+                 'vom ' + dLong.format(parseDate(p.date))];
+    if (typeof p.likes === 'number') parts.push(nf.format(p.likes) + ' Likes');
+    if (typeof p.views === 'number') parts.push(nf.format(p.views) + ' Aufrufe');
+    return parts.join(', ') + '. Großansicht öffnen';
+  }
+
+  /* ======================= Zustand ======================= */
+  var posts = [];
+  var mode = document.documentElement.getAttribute('data-mode') || 'auto'; // auto | append | pager
+  var qm = new URLSearchParams(location.search).get('modus');                // ?modus=seiten oder ?modus=mehr
+  if (qm === 'seiten') mode = 'pager'; else if (qm === 'mehr') mode = 'append';
+  var shown = 0;      // Anzahl angezeigter Beiträge (append)
+  var page = 0;       // aktuelle Seite (pager)
+  var wall = $('wall'), controls = $('controls');
+
+  /* ======================= Höhe an lions.de melden ======================= */
+  var acked = false;
+  function postHeight() {
+    if (!framed) return;
+    var h = Math.ceil(document.documentElement.getBoundingClientRect().height);
+    try { window.parent.postMessage({ type: 'lionswall:height', height: h }, '*'); } catch (e) {}
+  }
+  window.addEventListener('message', function (e) {
+    if (CONFIG.parentOrigins.indexOf(e.origin) === -1) return;
+    if (e.data && e.data.type === 'lionswall:ack') {
+      acked = true;
+      if (mode === 'auto' && controlsPending) { controlsPending = false; mode = 'append'; renderControls(); }
+    }
+  });
+  if (window.ResizeObserver) new ResizeObserver(postHeight).observe(document.body);
+  window.addEventListener('load', postHeight);
+
+  /* ======================= Sichtbaren Bereich ermitteln =======================
+     Im iframe ist nur ein Teil der Wall auf dem Bildschirm. Damit die Großansicht
+     genau dort erscheint, wird der sichtbare Ausschnitt per IntersectionObserver gemessen. */
+  var vis = null;
+  (function () {
+    if (!('IntersectionObserver' in window)) return;
+    var probe = document.createElement('div');
+    probe.style.cssText = 'position:absolute;left:0;top:0;width:1px;height:100%;pointer-events:none;visibility:hidden';
+    document.body.appendChild(probe);
+    var th = []; for (var i = 0; i <= 200; i++) th.push(i / 200);
+    new IntersectionObserver(function (entries) {
+      var en = entries[entries.length - 1];
+      if (!en.isIntersecting) { vis = null; return; }
+      vis = { top: en.intersectionRect.top - en.boundingClientRect.top, height: en.intersectionRect.height };
+      if (lbOpen) placeLightbox();
+    }, { threshold: th }).observe(probe);
+  })();
+
+  /* ======================= Raster ======================= */
+  function tileHtml(p, i) {
+    var imgs = p.images || [];
+    var first = imgs[0] || {};
+    var media = '';
+    if (p.type === 'carousel' && imgs.length > 1) {
+      imgs.forEach(function (im, k) {
+        media += '<img class="layer' + (k === 0 ? ' on' : '') + '" ' + (k === 0 ? 'src' : 'data-src') + '="' + esc(im.s) +
+                 '" alt="" width="540" height="675"' + (k === 0 ? ' loading="lazy" decoding="async"' : '') + '>';
+      });
+      media += '<span class="badge">' + icon('stack') + '</span><div class="dots">' +
+               imgs.map(function (_, k) { return '<span' + (k === 0 ? ' class="on"' : '') + '></span>'; }).join('') + '</div>';
+    } else {
+      media += '<img src="' + esc(first.s) + '" alt="" width="540" height="675" loading="lazy" decoding="async">';
+      if (p.type === 'reel') media += '<span class="play">' + icon('play') + '</span><span class="badge">' + icon('video') + '</span>';
+    }
+    return '<figure class="tile" data-i="' + i + '"><button class="tile-btn" type="button" aria-label="' + esc(label(p)) + '">' +
+           '<div class="media">' + media + '</div><div class="stats">' + statsHtml(p) + '</div></button></figure>';
+  }
+
+  function renderSkeleton() {
+    var h = '';
+    for (var i = 0; i < batch(); i++) h += '<div class="tile skeleton"><div class="media"></div><div class="stats">&nbsp;</div></div>';
+    wall.innerHTML = h;
+  }
+
+  function appendRange(from, to) {
+    var frag = document.createElement('div');
+    frag.innerHTML = posts.slice(from, to).map(function (p, k) { return tileHtml(p, from + k); }).join('');
+    var nodes = Array.prototype.slice.call(frag.children);
+    nodes.forEach(function (n) { wall.appendChild(n); });
+    nodes.forEach(setupTile);
+  }
+
+  function showAppend(count) {
+    var target = Math.min(posts.length, count);
+    if (shown === 0) wall.innerHTML = '';
+    appendRange(shown, target);
+    shown = target;
+  }
+
+  /* Seiten-Modus (nur iframe, feste Höhe): Kacheln so bemessen, dass eine Seite
+     genau in den Rahmen passt – ohne Scrollen im Rahmen und ohne große Lücken. */
+  var perPage = 0;
+  function fitLayout() {
+    var c = cols();
+    var gap = parseFloat(getComputedStyle(wall).columnGap) || 10;
+    var W = wall.clientWidth;
+    var colW = (W - (c - 1) * gap) / c;
+    var st = wall.querySelector('.stats');
+    var statsH = st ? st.offsetHeight : 31;
+    var avail = window.innerHeight - 74;          // Platz für die Blätter-Buttons
+    var best = { r: 1, w: colW, cov: -1 };
+    for (var r = 1; r <= 12; r++) {
+      var w = Math.min(colW, ((avail + gap) / r - gap - statsH) / 1.25);
+      if (w < Math.min(110, colW * 0.6)) break;
+      var cov = (c * r * w * (w * 1.25 + statsH)) / (W * avail);
+      if (cov > best.cov) best = { r: r, w: w, cov: cov };
+    }
+    wall.style.gridTemplateColumns = 'repeat(' + c + ', ' + Math.floor(best.w) + 'px)';
+    wall.style.justifyContent = 'center';
+    perPage = c * best.r;
+  }
+
+  function showPage(n) {
+    stopAllCarousels();
+    fitLayout();
+    var pages = Math.max(1, Math.ceil(posts.length / perPage));
+    page = Math.max(0, Math.min(n, pages - 1));
+    wall.innerHTML = '';
+    appendRange(page * perPage, Math.min(posts.length, (page + 1) * perPage));
+    renderControls();
+    window.scrollTo(0, 0);
+  }
+
+  var controlsPending = false;
+  function renderControls() {
+    var h = '';
+    if (mode === 'pager') {
+      var pages = Math.ceil(posts.length / perPage);
+      var narrow = window.innerWidth < 420;
+      if (pages > 1) {
+        h += '<button class="btn" type="button" data-act="newer"' + (page > 0 ? '' : ' style="visibility:hidden"') + '>' +
+             icon('left') + (narrow ? 'Neuere' : 'Neuere Beiträge') + '</button>';
+        h += '<span class="pageinfo" aria-live="polite">' + (page + 1) + ' / ' + pages + '</span>';
+        h += '<button class="btn" type="button" data-act="older"' + (page < pages - 1 ? '' : ' style="visibility:hidden"') + '>' +
+             (narrow ? 'Ältere' : 'Ältere Beiträge') + icon('right') + '</button>';
+      }
+    } else if (shown < posts.length) {
+      h += '<button class="btn" type="button" data-act="more">Mehr laden</button>';
+    }
+    controls.innerHTML = h;
+    controls.hidden = !h;
+    postHeight();
+  }
+  controls.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-act]');
+    if (!b) return;
+    var act = b.getAttribute('data-act');
+    if (act === 'more') { var before = shown; showAppend(shown + batch()); renderControls(); focusTile(before); }
+    if (act === 'older') showPage(page + 1);
+    if (act === 'newer') showPage(page - 1);
+  });
+  function focusTile(i) {
+    var t = wall.querySelector('[data-i="' + i + '"] .tile-btn');
+    if (t) t.focus({ preventScroll: true });
+  }
+
+  /* ======================= Karussells auf der Wall ======================= */
+  var carousels = [];
+  var visibleTiles = new WeakSet();
+  var tileObserver = 'IntersectionObserver' in window ? new IntersectionObserver(function (es) {
+    es.forEach(function (e) { if (e.isIntersecting) visibleTiles.add(e.target); else visibleTiles.delete(e.target); });
+  }, { threshold: 0.4 }) : null;
+
+  function setupTile(tile) {
+    var i = +tile.getAttribute('data-i');
+    tile.querySelector('.tile-btn').addEventListener('click', function () { openLightbox(i, this); });
+    var layers = tile.querySelectorAll('img.layer');
+    if (layers.length < 2) return;
+    var c = { tile: tile, layers: layers, dots: tile.querySelectorAll('.dots span'), k: 0, hold: false, timer: null };
+    tile.addEventListener('pointerenter', function (e) { if (e.pointerType === 'mouse') c.hold = true; });
+    tile.addEventListener('pointerleave', function (e) { if (e.pointerType === 'mouse') c.hold = false; });
+    tile.addEventListener('touchstart', function () { c.hold = true; }, { passive: true });
+    tile.addEventListener('touchend', function () { setTimeout(function () { c.hold = false; }, 1500); });
+    if (tileObserver) tileObserver.observe(tile); else visibleTiles.add(tile);
+    carousels.push(c);
+    if (reduceMotion) return;
+    var offset = (carousels.length * 1300) % CONFIG.carouselInterval;   // versetzter Takt
+    c.timer = setTimeout(function tick() {
+      if (!c.tile.isConnected) return;
+      if (!c.hold && !lbOpen && !document.hidden && visibleTiles.has(c.tile)) step(c);
+      c.timer = setTimeout(tick, CONFIG.carouselInterval);
+    }, CONFIG.carouselInterval + offset);
+    preload(layers[1]);
+  }
+  function preload(img) { if (img && img.dataset.src) { img.src = img.dataset.src; img.removeAttribute('data-src'); } }
+  function step(c) {
+    var n = (c.k + 1) % c.layers.length;
+    preload(c.layers[n]);
+    preload(c.layers[(n + 1) % c.layers.length]);
+    c.layers[c.k].classList.remove('on'); c.dots[c.k] && c.dots[c.k].classList.remove('on');
+    c.layers[n].classList.add('on'); c.dots[n] && c.dots[n].classList.add('on');
+    c.k = n;
+  }
+  function stopAllCarousels() { carousels.forEach(function (c) { clearTimeout(c.timer); }); carousels = []; }
+
+  /* ======================= Großansicht ======================= */
+  var lb = $('lb'), lbMedia = $('lbMedia'), lbStats = $('lbStats'), lbIg = $('lbIg'), lbIgText = $('lbIgText'), lbHint = $('lbHint');
+  var lbOpen = false, cur = 0, img = 0, opener = null;
+
+  function placeLightbox() {
+    var top = 0, height = window.innerHeight;
+    if (framed) {
+      lb.classList.add('framed');
+      if (vis && vis.height > 0) { top = vis.top; height = vis.height; }
+      else if (opener) { var r = opener.getBoundingClientRect(); top = Math.max(0, r.top + window.scrollY - 120); height = 640; }
+      var docH = document.documentElement.scrollHeight;
+      height = Math.max(Math.min(height, docH), Math.min(460, docH));
+      top = Math.max(0, Math.min(top, docH - height));
+      lb.style.top = top + 'px';
+      lb.style.height = height + 'px';
+    }
+    // Kartenbreite: so groß wie möglich, ohne dass Button und Hinweis aus dem Bild rutschen
+    var w = Math.min(lb.clientWidth - 120, (height - 56 - 20 - 50 - 16 - 40 - 34) * 0.8, 560);
+    if (lb.clientWidth < 520) w = Math.min(lb.clientWidth - 48, (height - 56 - 20 - 50 - 16 - 40 - 34) * 0.8);
+    lb.style.setProperty('--lbw', Math.max(200, Math.round(w)) + 'px');
+  }
+
+  function renderLightbox() {
+    var p = posts[cur];
+    var imgs = p.images || [];
+    var im = imgs[img] || imgs[0] || {};
+    var h = '<img src="' + esc(im.l || im.s) + '" alt="' + esc(p.alt || '') + '"' +
+            (im.w && im.h ? ' width="' + im.w + '" height="' + im.h + '"' : '') + '>';
+    if (p.type === 'reel') h += '<span class="play">' + icon('play') + '</span>';
+    if (imgs.length > 1) {
+      h += '<div class="dots">' + imgs.map(function (_, k) {
+        return '<button type="button" data-img="' + k + '" aria-label="Bild ' + (k + 1) + ' von ' + imgs.length + '"' + (k === img ? ' class="on" aria-current="true"' : '') + '><span></span></button>';
+      }).join('') + '</div>';
+    }
+    lbMedia.innerHTML = h;
+    lbMedia.classList.toggle('reel', p.type === 'reel');
+    lbStats.innerHTML = statsHtml(p, true);
+    lbIg.href = safeUrl(p.permalink);
+    lbIgText.textContent = p.type === 'reel' ? 'Reel auf Instagram ansehen' : 'Auf Instagram ansehen';
+    lbHint.textContent = posts.length > 1 || imgs.length > 1 ? 'Wischen oder Pfeile zum Blättern' : '';
+    // nächstes Bild vorladen
+    var nx = imgs[img + 1] || (posts[(cur + 1) % posts.length].images || [])[0];
+    if (nx) { var pre = new Image(); pre.src = nx.l || nx.s; }
+  }
+
+  function openLightbox(i, btn) {
+    cur = i; img = 0; opener = btn;
+    lb.hidden = false;
+    placeLightbox();
+    renderLightbox();
+    lbOpen = true;
+    requestAnimationFrame(function () { lb.classList.add('open'); $('lbClose').focus({ preventScroll: true }); });
+  }
+  function closeLightbox() {
+    if (!lbOpen) return;
+    lbOpen = false;
+    carousels.forEach(function (c) { c.hold = false; });
+    lb.classList.remove('open');
+    setTimeout(function () { if (!lbOpen) lb.hidden = true; }, 300);
+    if (opener) opener.focus({ preventScroll: true });
+  }
+  function go(dir) {   // erst durch die Bilder eines Karussells, dann zum nächsten Beitrag
+    var n = (posts[cur].images || []).length;
+    if (dir > 0) { if (img < n - 1) img++; else { cur = (cur + 1) % posts.length; img = 0; } }
+    else { if (img > 0) img--; else { cur = (cur - 1 + posts.length) % posts.length; img = 0; } }
+    renderLightbox();
+  }
+
+  $('lbClose').addEventListener('click', closeLightbox);
+  $('lbPrev').addEventListener('click', function () { go(-1); });
+  $('lbNext').addEventListener('click', function () { go(1); });
+  lb.addEventListener('click', function (e) { if (e.target === lb) closeLightbox(); });
+  lbMedia.addEventListener('click', function (e) {
+    var d = e.target.closest('[data-img]');
+    if (d) { img = +d.getAttribute('data-img'); renderLightbox(); return; }
+    if (posts[cur] && posts[cur].type === 'reel' && e.target.closest('.play')) lbIg.click();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (!lbOpen) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeLightbox(); }
+    else if (e.key === 'ArrowLeft') go(-1);
+    else if (e.key === 'ArrowRight') go(1);
+    else if (e.key === 'Tab') {   // Fokus in der Großansicht halten
+      var f = Array.prototype.slice.call(lb.querySelectorAll('button, a[href]'));
+      var i = f.indexOf(document.activeElement);
+      if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); }
+      else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); }
+    }
+  });
+  var tx = null, ty = null;
+  lb.addEventListener('touchstart', function (e) { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, { passive: true });
+  lb.addEventListener('touchend', function (e) {
+    if (tx === null) return;
+    var dx = e.changedTouches[0].clientX - tx, dy = e.changedTouches[0].clientY - ty;
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) go(dx < 0 ? 1 : -1);
+    tx = ty = null;
+  });
+  window.addEventListener('resize', function () { if (lbOpen) placeLightbox(); });
+
+  /* Seiten-Modus: bei geänderter Rahmengröße neu einpassen, Wischen blättert um */
+  var rt = null;
+  window.addEventListener('resize', function () {
+    if (mode !== 'pager' || !posts.length || lbOpen) return;
+    clearTimeout(rt);
+    rt = setTimeout(function () {
+      var first = page * perPage, old = perPage;
+      fitLayout();
+      if (perPage !== old) showPage(Math.floor(first / perPage)); else renderControls();
+    }, 200);
+  });
+  var wx = null, wy = null;
+  wall.addEventListener('touchstart', function (e) { wx = e.touches[0].clientX; wy = e.touches[0].clientY; }, { passive: true });
+  wall.addEventListener('touchend', function (e) {
+    if (mode !== 'pager' || wx === null) return;
+    var dx = e.changedTouches[0].clientX - wx, dy = e.changedTouches[0].clientY - wy;
+    wx = wy = null;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    var pages = Math.ceil(posts.length / perPage);
+    if (dx < 0 && page < pages - 1) showPage(page + 1);
+    if (dx > 0 && page > 0) showPage(page - 1);
+  });
+
+  /* ======================= Start ======================= */
+  renderSkeleton();
+  fetch(CONFIG.feedUrl, { cache: 'no-cache' })
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function (data) {
+      posts = (data.posts || []).filter(function (p) { return p.images && p.images.length; });
+      wall.setAttribute('aria-busy', 'false');
+      if (!posts.length) throw new Error('leer');
+      wall.innerHTML = '';
+      if (mode === 'pager') { showPage(0); return; }
+      showAppend(batch());
+      if (mode === 'auto' && !framed) mode = 'append';
+      if (mode === 'auto') {
+        if (acked) { mode = 'append'; renderControls(); }
+        else {
+          controlsPending = true;
+          setTimeout(function () {
+            if (!controlsPending) return;
+            controlsPending = false; mode = 'pager';   // kein Hilfsskript: Höhe bleibt fest, also blättern
+            shown = 0; showPage(0);
+          }, CONFIG.handshakeWait);
+        }
+      } else renderControls();
+    })
+    .catch(function () {
+      wall.setAttribute('aria-busy', 'false');
+      wall.innerHTML = '<p class="notice" style="grid-column:1/-1">Die Instagram-Beiträge können gerade nicht geladen werden.</p>';
+      postHeight();
+    });
+
+  if (framed) try { window.parent.postMessage({ type: 'lionswall:hello' }, '*'); } catch (e) {}
+})();
+</script>
+</body>
+</html>
