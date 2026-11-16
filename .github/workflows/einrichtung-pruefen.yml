@@ -1,7 +1,7 @@
 name: Einrichtung prüfen
 
 # Nur manuell starten (Actions > Einrichtung prüfen > Run workflow).
-# Prüft, ob der Instagram-Token funktioniert, und zeigt den Kontonamen an.
+# Prüft den Instagram-Zugang: Konto, neuester Beitrag mit Likes und Aufrufe.
 
 on:
   workflow_dispatch:
@@ -14,11 +14,33 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Instagram-Token prüfen
+      - name: Instagram-Zugang prüfen
         env:
           IG_TOKEN: ${{ secrets.IG_TOKEN }}
+          IG_USER_ID: ${{ vars.IG_USER_ID }}
         run: |
-          if [ -z "$IG_TOKEN" ]; then echo "Noch kein Instagram-Token hinterlegt (Anleitung, Schritt 6)."; exit 1; fi
-          curl -sS -G "https://graph.instagram.com/v25.0/me" \
-               --data-urlencode "fields=username,account_type,media_count" \
-               --data-urlencode "access_token=$IG_TOKEN" | python3 -m json.tool
+          python3 - <<'EOF'
+          import json, os, sys, urllib.parse, urllib.request, urllib.error
+          t = os.environ.get("IG_TOKEN", "").strip()
+          uid = os.environ.get("IG_USER_ID", "").strip()
+          if not t:
+              sys.exit("Secret IG_TOKEN fehlt.")
+          if t.startswith("IG"):
+              base, who = "https://graph.instagram.com/v25.0", "me"
+          else:
+              if not uid:
+                  sys.exit("Variable IG_USER_ID fehlt.")
+              base, who = "https://graph.facebook.com/v25.0", uid
+          def get(path, **p):
+              p["access_token"] = t
+              try:
+                  with urllib.request.urlopen(f"{base}/{path}?{urllib.parse.urlencode(p)}", timeout=30) as r:
+                      return json.loads(r.read())
+              except urllib.error.HTTPError as e:
+                  return {"FEHLER": e.read().decode("utf-8", "replace").replace(t, "***")[:400]}
+          print("1) Konto:", json.dumps(get(who, fields="username,media_count"), ensure_ascii=False))
+          m = get(f"{who}/media", fields="id,media_type,timestamp,like_count,permalink", limit=1)
+          print("2) Neuester Beitrag:", json.dumps(m, ensure_ascii=False))
+          if m.get("data"):
+              print("3) Aufrufe:", json.dumps(get(f"{m['data'][0]['id']}/insights", metric="views"), ensure_ascii=False))
+          EOF

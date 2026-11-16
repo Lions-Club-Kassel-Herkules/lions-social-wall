@@ -42,6 +42,7 @@ jobs:
       - name: Instagram-Beiträge abrufen
         env:
           IG_TOKEN: ${{ secrets.IG_TOKEN }}
+          IG_USER_ID: ${{ vars.IG_USER_ID }}
         run: .venv/bin/python scripts/fetch_feed.py
 
       - name: Bild-Zwischenspeicher sichern

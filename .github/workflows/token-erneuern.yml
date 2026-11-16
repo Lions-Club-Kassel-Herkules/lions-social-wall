@@ -20,6 +20,10 @@ jobs:
           IG_TOKEN: ${{ secrets.IG_TOKEN }}
           GH_TOKEN: ${{ secrets.TRESOR_SCHLUESSEL }}
         run: |
+          if [[ "$IG_TOKEN" != IG* ]]; then
+            echo "Systemnutzer-Token: läuft nicht ab, keine Verlängerung nötig."
+            exit 0
+          fi
           python3 scripts/refresh_token.py "$RUNNER_TEMP/neu"
           gh secret set IG_TOKEN --repo "$GITHUB_REPOSITORY" < "$RUNNER_TEMP/neu"
           shred -u "$RUNNER_TEMP/neu"
