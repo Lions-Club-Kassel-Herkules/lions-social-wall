@@ -27,9 +27,14 @@ BUILD = ROOT / "build"
 MEDIA = BUILD / "media"
 CONFIG_FILE = ROOT / "config" / "wall-config.json"
 
-API_BASE = os.environ.get("IG_API_BASE", "https://graph.instagram.com").rstrip("/")
-API_VERSION = os.environ.get("IG_API_VERSION", "v25.0")
 TOKEN = os.environ.get("IG_TOKEN", "").strip()
+IG_USER_ID = os.environ.get("IG_USER_ID", "").strip()
+# Instagram-Token (beginnt mit "IG") -> graph.instagram.com
+# Systemnutzer-Token aus Meta Business (beginnt z. B. mit "EAA") -> graph.facebook.com + Instagram-Konto-ID
+FB_MODE = bool(TOKEN) and not TOKEN.startswith("IG")
+API_BASE = os.environ.get("IG_API_BASE", "https://graph.facebook.com" if FB_MODE else "https://graph.instagram.com").rstrip("/")
+API_VERSION = os.environ.get("IG_API_VERSION", "v25.0")
+ACCOUNT = IG_USER_ID if FB_MODE else "me"
 
 SIZES = {"s": 540, "l": 1080}          # Kachel / Großansicht (Breite in Pixel)
 JPEG_QUALITY = 82
@@ -97,7 +102,7 @@ def is_hidden(item, hidden):
 
 def fetch_media_list(max_posts, hidden):
     items, url = [], None
-    page = api("me/media", fields=MEDIA_FIELDS, limit=min(50, max_posts + len(hidden)))
+    page = api(f"{ACCOUNT}/media", fields=MEDIA_FIELDS, limit=min(50, max_posts + len(hidden)))
     while True:
         for it in page.get("data", []):
             if not is_hidden(it, hidden):
@@ -212,6 +217,9 @@ def build_post(item, keep):
 def main():
     if not TOKEN:
         log("Fehler: Der Instagram-Token fehlt (Secret IG_TOKEN).")
+        return 2
+    if FB_MODE and not IG_USER_ID:
+        log("Fehler: Für diesen Token wird die Instagram-Konto-ID gebraucht (Variable IG_USER_ID).")
         return 2
     MEDIA.mkdir(parents=True, exist_ok=True)
     cfg = load_config()
