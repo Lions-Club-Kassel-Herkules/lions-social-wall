@@ -1,0 +1,24 @@
+name: Einrichtung prüfen
+
+# Nur manuell starten (Actions > Einrichtung prüfen > Run workflow).
+# Prüft, ob der Instagram-Token funktioniert, und zeigt den Kontonamen an.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Instagram-Token prüfen
+        env:
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+        run: |
+          if [ -z "$IG_TOKEN" ]; then echo "Noch kein Instagram-Token hinterlegt (Anleitung, Schritt 6)."; exit 1; fi
+          curl -sS -G "https://graph.instagram.com/v25.0/me" \
+               --data-urlencode "fields=username,account_type,media_count" \
+               --data-urlencode "access_token=$IG_TOKEN" | python3 -m json.tool

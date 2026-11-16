@@ -1,0 +1,70 @@
+name: Wall aktualisieren
+
+on:
+  schedule:
+    - cron: "17 * * * *"        # stündlich, jeweils Minute 17 (UTC)
+  workflow_dispatch:            # manuell über "Run workflow"
+  push:
+    branches: [main]
+    paths: ["wall/**", "config/**", "scripts/**"]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Python-Umgebung vorbereiten
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --quiet -r requirements.txt
+
+      - name: Bild-Zwischenspeicher laden
+        uses: actions/cache/restore@v5
+        with:
+          path: build/media
+          key: wall-media-${{ github.run_id }}
+          restore-keys: wall-media-
+
+      - name: Instagram-Beiträge abrufen
+        env:
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+        run: .venv/bin/python scripts/fetch_feed.py
+
+      - name: Bild-Zwischenspeicher sichern
+        uses: actions/cache/save@v5
+        continue-on-error: true    # unverändert = schon gespeichert, kein Fehler
+        with:
+          path: build/media
+          key: wall-media-${{ hashFiles('build/media/**') }}
+
+      - name: Seite zusammenstellen (nur öffentliche Dateien)
+        run: |
+          rm -rf out && mkdir -p out/media
+          cp wall/index.html out/
+          cp build/feed.json out/
+          find build/media -name '*.jpg' -exec cp {} out/media/ \;
+          echo "$(ls out/media | wc -l) Bilddateien bereit"
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: out
+
+      - name: Veröffentlichen
+        id: deployment
+        uses: actions/deploy-pages@v4

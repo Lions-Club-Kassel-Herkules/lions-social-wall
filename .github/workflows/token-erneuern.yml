@@ -1,0 +1,47 @@
+name: Instagram-Token erneuern
+
+on:
+  schedule:
+    - cron: "41 3 * * 1"        # jeden Montag, 03:41 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Token verlängern und im Tresor speichern
+        env:
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+          GH_TOKEN: ${{ secrets.TRESOR_SCHLUESSEL }}
+        run: |
+          python3 scripts/refresh_token.py "$RUNNER_TEMP/neu"
+          gh secret set IG_TOKEN --repo "$GITHUB_REPOSITORY" < "$RUNNER_TEMP/neu"
+          shred -u "$RUNNER_TEMP/neu"
+          echo "Neuer Token ist im Tresor gespeichert."
+
+  aktiv-halten:
+    # Öffentliche Repositories pausieren Zeitpläne nach 60 Tagen ohne Änderung.
+    # Ist die letzte Änderung 40 Tage oder älter, wird eine leere Änderung gespeichert.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - name: Repository aktiv halten
+        run: |
+          alter=$(( ( $(date +%s) - $(git log -1 --format=%ct) ) / 86400 ))
+          echo "Letzte Änderung vor $alter Tagen."
+          if [ "$alter" -ge 40 ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit --allow-empty -m "Wall aktiv halten"
+            git push
+            echo "Leere Änderung gespeichert, Zeitpläne bleiben aktiv."
+          fi
